@@ -134,17 +134,17 @@ function G2SwaptionPricingFunction(model::G2, w::Float64, startTime::Float64, pa
   eta = get_eta(model)
   rho = get_rho(model)
 
-  sigmax = sigma * sqrt(0.5 * (1.0 - exp(-2.0 * a * startTime)) / a)
-  sigmay = eta * sqrt(0.5 * (1.0 - exp(-2.0 * b * startTime)) / b)
-  rhoxy = rho * eta * sigma * (1.0 - exp(-(a + b) * startTime)) / ((a + b) * sigmax * sigmay)
+  sigmax = sigma * sqrt(0.5 * (-expm1(-2.0 * a * startTime)) / a)
+  sigmay = eta * sqrt(0.5 * (-expm1(-2.0 * b * startTime)) / b)
+  rhoxy = rho * eta * sigma * (-expm1(-(a + b) * startTime)) / ((a + b) * sigmax * sigmay)
 
   temp = sigma * sigma / (a * a)
-  mux = -((temp + rho * sigma * eta / (a * b)) * (1.0 - exp(-a * startTime)) - 0.5 * temp * (1.0 - exp(-2.0 * a * startTime)) -
-        rho * sigma * eta / (b * (a + b)) * (1.0 - exp(-(b + a) * startTime)))
+  mux = -((temp + rho * sigma * eta / (a * b)) * (-expm1(-a * startTime)) - 0.5 * temp * (-expm1(-2.0 * a * startTime)) -
+        rho * sigma * eta / (b * (a + b)) * (-expm1(-(b + a) * startTime)))
 
   temp = eta * eta / (b * b)
-  muy = -((temp + rho * sigma * eta / (a * b)) * (1.0 - exp(-b * startTime)) - 0.5 * temp * (1.0 - exp(-2.0 * b * startTime)) -
-        rho * sigma * eta / (a * (a + b)) * (1.0 - exp(-(b + a) * startTime)))
+  muy = -((temp + rho * sigma * eta / (a * b)) * (-expm1(-b * startTime)) - 0.5 * temp * (-expm1(-2.0 * b * startTime)) -
+        rho * sigma * eta / (a * (a + b)) * (-expm1(-(b + a) * startTime)))
 
   n = length(payTimes)
   A_ = zeros(n)
@@ -196,7 +196,7 @@ function operator(pricingFunc::G2SwaptionPricingFunction)
   return _inner
 end
 
-function gen_swaption{I <: Integer}(model::G2, swaption::Swaption, fixedRate::Float64, range::Float64, intervals::I)
+function gen_swaption(model::G2, swaption::Swaption, fixedRate::Float64, range::Float64, intervals::Int)
   settlement = reference_date(model.ts)
   dc = model.ts.dc
   startTime = year_fraction(dc, settlement, swaption.swap.args.floatingResetDates[1])

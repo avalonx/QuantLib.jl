@@ -11,23 +11,26 @@ type BlackIborCouponPricer{O <: OptionletVolatilityStructure} <: IborCouponPrice
   initialized::Bool
   capletVolatility::O
 
-  function call(::Type{BlackIborCouponPricer})
-    new{OptionletVolatilityStructure}(0.0, 0.0, 0.0, false)
-  end
+  # function call(::Type{BlackIborCouponPricer})
+  #   new{OptionletVolatilityStructure}(0.0, 0.0, 0.0, false)
+  # end
 
-  function call{O}(::Type{BlackIborCouponPricer}, capletVolatility::O)
-    new{O}(0.0, 0.0, 0.0, false, capletVolatility)
-  end
+  # function call{O}(::Type{BlackIborCouponPricer}, capletVolatility::O)
+  #   new{O}(0.0, 0.0, 0.0, false, capletVolatility)
+  # end
 end
 
-type IborCoupon{DC <: DayCount, I <: Integer, X <: InterestRateIndex, ICP <: IborCouponPricer} <: Coupon
+BlackIborCouponPricer() = BlackIborCouponPricer{NullOptionletVolatilityStructure}(0.0, 0.0, 0.0, false, NullOptionletVolatilityStructure())
+BlackIborCouponPricer(capVol::OptionletVolatilityStructure) = BlackIborCouponPricer{typeof(capVol)}(0.0, 0.0, 0.0, false, capVol)
+
+type IborCoupon{DC <: DayCount, X <: InterestRateIndex, ICP <: IborCouponPricer} <: Coupon
   couponMixin::CouponMixin{DC}
   paymentDate::Date
   nominal::Float64
   fixingDate::Date
   fixingValueDate::Date
   fixingEndDate::Date
-  fixingDays::I
+  fixingDays::Int
   iborIndex::X
   gearing::Float64
   spread::Float64
@@ -36,7 +39,7 @@ type IborCoupon{DC <: DayCount, I <: Integer, X <: InterestRateIndex, ICP <: Ibo
   pricer::ICP
 end
 
-function IborCoupon{I <: Integer, X <: InterestRateIndex, DC <: DayCount, ICP <: IborCouponPricer}(paymentDate::Date, nominal::Float64, startDate::Date, endDate::Date, fixingDays::I, iborIndex::X,
+function IborCoupon{X <: InterestRateIndex, DC <: DayCount, ICP <: IborCouponPricer}(paymentDate::Date, nominal::Float64, startDate::Date, endDate::Date, fixingDays::Int, iborIndex::X,
                     gearing::Float64, spread::Float64, refPeriodStart::Date, refPeriodEnd::Date, dc::DC, isInArrears::Bool, pricer::ICP)
   # TODO check if right fixing days
   _fixing_date = isInArrears ? fixing_date(iborIndex, endDate) : fixing_date(iborIndex, startDate)
@@ -55,7 +58,7 @@ function IborCoupon{I <: Integer, X <: InterestRateIndex, DC <: DayCount, ICP <:
 
   ## TODO ensure positive (> 0) spanning_time
 
-  return IborCoupon{DC, I, X, ICP}(CouponMixin{DC}(startDate, endDate, refPeriodStart, refPeriodEnd, dc, -1.0), paymentDate, nominal, _fixing_date, fixing_val_date, fixing_end_date, fixingDays, iborIndex, gearing, spread,
+  return IborCoupon{DC, X, ICP}(CouponMixin{DC}(startDate, endDate, refPeriodStart, refPeriodEnd, dc, -1.0), paymentDate, nominal, _fixing_date, fixing_val_date, fixing_end_date, fixingDays, iborIndex, gearing, spread,
                     isInArrears, spanning_time, pricer)
 end
 
@@ -78,11 +81,19 @@ end
 function index_fixing(coupon::IborCoupon)
   today = settings.evaluation_date
 
-  if coupon.fixingDate > today
+  if coupon.fixingDate >= today
     return forecast_fixing(coupon.iborIndex, coupon.iborIndex.ts, coupon.fixingValueDate, coupon.fixingEndDate, coupon.spanningTime)
   end
 
-  error("Fixing date on or before eval date")
+  pastFix = get(coupon.iborIndex.pastFixings, coupon.fixingDate, -1.0)
+
+  if pastFix == -1.0
+    return forecast_fixing(coupon.iborIndex, coupon.iborIndex.ts, coupon.fixingValueDate, coupon.fixingEndDate, coupon.spanningTime)
+  else
+    return pastFix
+  end
+
+  # error("Fixing date on or before eval date")
 end
 
 function accrued_amount(coup::IborCoupon, settlement_date::Date)
@@ -97,12 +108,16 @@ end
 type IborLeg <: Leg
   coupons::Vector{Union{IborCoupon, SimpleCashFlow}}
 
-  function IborLeg{X <: InterestRateIndex, DC <: DayCount, C <: BusinessDayConvention, I <: Integer, ICP <: IborCouponPricer}(schedule::Schedule, nominal::Float64, iborIndex::X, paymentDC::DC, paymentAdj::C,
-                   fixingDays::Vector{I} = fill(iborIndex.fixingDays, length(schedule.dates) - 1),
+  function IborLeg{X <: InterestRateIndex, DC <: DayCount, C <: BusinessDayConvention, ICP <: IborCouponPricer}(schedule::Schedule, nominal::Float64, iborIndex::X, paymentDC::DC, paymentAdj::C,
+                   fixingDays::Vector{Int} = fill(iborIndex.fixingDays, length(schedule.dates) - 1),
                    gearings::Vector{Float64} = ones(length(schedule.dates) - 1), spreads::Vector{Float64} = zeros(length(schedule.dates) - 1),
                    caps::Vector{Float64} = Vector{Float64}(), floors::Vector{Float64} = Vector{Float64}(), isInArrears::Bool = false,
-                   isZero::Bool = false, pricer::ICP = BlackIborCouponPricer(); add_redemption::Bool = true)
+                   isZero::Bool = false, pricer::ICP = BlackIborCouponPricer();
+                   add_redemption::Bool = true, cap_vol::OptionletVolatilityStructure = NullOptionletVolatilityStructure())
     n = add_redemption ? length(schedule.dates) : length(schedule.dates) - 1
+    if isa(pricer.capletVolatility, NullOptionletVolatilityStructure) && ~isa(cap_vol, NullOptionletVolatilityStructure)
+      pricer = BlackIborCouponPricer(cap_vol)
+    end
     coups = Vector{Union{IborCoupon, SimpleCashFlow}}(n)
     last_payment_date = adjust(schedule.cal, paymentAdj, schedule.dates[end])
 

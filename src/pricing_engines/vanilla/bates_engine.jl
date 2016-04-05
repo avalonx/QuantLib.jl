@@ -1,6 +1,6 @@
-type BatesEngine{I <: Integer, C <: ComplexLogFormula, HI <: HestonIntegration} <: AbstractHestonEngine
+type BatesEngine{C <: ComplexLogFormula, HI <: HestonIntegration} <: AbstractHestonEngine
   model::BatesModel
-  evaluations::I
+  evaluations::Int
   cpxLog::C
   integration::HI
 end
@@ -21,5 +21,5 @@ function add_on_term(pe::BatesEngine, phi::Float64, t::Float64, j::Int)
   i = j == 1 ? 1.0 : 0.0
   g = complex(i, phi)
 
-  return t * lambda * (exp(nu * g + delta2 * g * g) - 1.0 - g * (exp(nu * delta2) - 1.0))
+  return t * lambda * (expm1(nu * g + delta2 * g * g) - g * expm1(nu * delta2))
 end

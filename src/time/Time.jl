@@ -3,6 +3,7 @@ module Time
 
 # Date helper funcs
 within_next_week(d1::Date, d2::Date) = d2 >= d1 && d2 <= d1 + Dates.Day(7)
+within_next_week(t1::Float64, t2::Float64) = t1 <= t2 && t2 <= t1 + (1.0/52.0)
 within_previous_week(d1::Date, d2::Date) = d2 >= d1 - Dates.Day(7) && d2 <= d1
 
 export within_next_week, within_previous_week
@@ -18,7 +19,7 @@ day_count, days_per_year, year_fraction
 # BusinessCalendar.jl
 export BusinessCalendar, WesternCalendar, OrthodoxCalendar, UnitedStatesCalendar, USSettlementCalendar, USNYSECalendar, USNERCCalendar,
 USGovernmentBondCalendar, UnitedKingdomCalendar, UKSettlementCalendar, UKLSECalendar, UKLMECalendar, TargetCalendar, NullCalendar, JointCalendar,
-BusinessDayConvention, Unadjusted, ModifiedFollowing, Following,
+BusinessDayConvention, Unadjusted, ModifiedFollowing, Following, is_business_day,
 easter_date, is_holiday, advance, adjust
 
 # tenor_period.jl
@@ -28,7 +29,7 @@ export TenorPeriod
 export DateGenerationRule, DateGenerationForwards, DateGenerationBackwards, DateGenerationTwentieth, Schedule
 
 # time_grid.jl
-export TimeGrid
+export TimeGrid, is_empty, closest_time, return_index
 
 
 include("Frequency.jl")

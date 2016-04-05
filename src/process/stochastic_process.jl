@@ -8,6 +8,7 @@ type OrnsteinUhlenbeckProcess <: StochasticProcess1D
 end
 
 expectation(process::OrnsteinUhlenbeckProcess, ::Float64, x0::Float64, dt::Float64) = process.level + (x0 - process.level) * exp(-process.speed * dt)
+get_x0(process::OrnsteinUhlenbeckProcess) = process.x0
 
 function variance(process::OrnsteinUhlenbeckProcess, ::Float64, ::Float64, dt::Float64)
   v = process.vol
@@ -15,7 +16,7 @@ function variance(process::OrnsteinUhlenbeckProcess, ::Float64, ::Float64, dt::F
     # algebraic limits for small speed
     return v * v * dt
   else
-    return 0.5 * v * v / process.speed * (1.0 - exp(-2.0 * process.speed * dt))
+    return 0.5 * v * v / process.speed * (-expm1(-2.0 * process.speed * dt))
   end
 end
 
@@ -44,6 +45,8 @@ function GsrProcess(times::Vector{Float64}, vols::Vector{Float64}, reversions::V
 
   return GsrProcess(times, vols, reversions, T, revZero, cache1, cache2, cache3, cache4, cache5)
 end
+
+get_x0(::GsrProcess) = 0.0
 
 function flush_cache!(gsrP::GsrProcess)
   for i in eachindex(gsrP.reversions)
@@ -97,7 +100,7 @@ function variance(process::GsrProcess, w::Float64, ::Float64, dt::Float64)
   for k = lower_index(process, w):upper_index(process, t) - 1
     res2 = vol(process, k) * vol(process, k)
     res2 *= rev_zero(process, k) ? -(floored_time(process, k, w) - capped_time(process, k + 1, t)) :
-                                  (1.0 - exp(2.0 * rev(process, k) * (floored_time(process, k, w) - capped_time(process, k + 1, t)))) /
+                                  (-expm1(2.0 * rev(process, k) * (floored_time(process, k, w) - capped_time(process, k + 1, t)))) /
                                   (2.0 * rev(process, k))
 
     for i = k + 1:upper_index(process, t) - 1
@@ -321,3 +324,8 @@ evolve(process::StochasticProcess1D, t0::Float64, x0::Float64, dt::Float64, dw::
 apply(process::StochasticProcess1D, x0::Float64, dx::Float64) = x0 + dx
 
 std_deviation(process::StochasticProcess1D, t0::Float64, x0::Float64, dt::Float64) = diffusion(process.disc, process, t0, x0, dt)
+
+variance(process::StochasticProcess1D, t0::Float64, x0::Float64, dt::Float64) = variance(process.disc, process, t0, x0, dt)
+
+get_size(process::StochasticProcess1D) = 1
+get_factors(process::StochasticProcess) = get_size(process)

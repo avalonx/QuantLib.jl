@@ -6,20 +6,24 @@ type DiscretizedAssetCommon{L <: Lattice}
   latestPostAdjustment::Float64
   method::L
 
-  call(::Type{DiscretizedAssetCommon}, t::Float64, v::Vector{Float64}, lpa::Float64, lpoa::Float64) =
-      new{Lattice}(t, v, lpa, lpoa)
+  # call(::Type{DiscretizedAssetCommon}, t::Float64, v::Vector{Float64}, lpa::Float64, lpoa::Float64) =
+  #     new{Lattice}(t, v, lpa, lpoa)
 end
 
-DiscretizedAssetCommon() = DiscretizedAssetCommon(0.0, zeros(0), eps(), eps())
+DiscretizedAssetCommon() = DiscretizedAssetCommon{NullLattice}(0.0, zeros(0), eps(), eps(), NullLattice())
+
+clone(das::DiscretizedAssetCommon, method::Lattice = das.method) = DiscretizedAssetCommon{typeof(method)}(das.time, das.values, das.latestPreAdjustment, das.latestPostAdjustment, method)
 
 set_time!(a::DiscretizedAsset, t::Float64) = a.common.time = t
-set_method!(a::DiscretizedAsset, method::Lattice) = a.common.method = method
 
-type DiscretizedDiscountBond <: DiscretizedAsset
-  common::DiscretizedAssetCommon
+get_values(a::DiscretizedAsset) = a.common.values
+
+function set_method!(a::DiscretizedAsset, method::Lattice)
+  new_common = clone(a.common, method)
+  a.common = new_common
+
+  return a
 end
-
-DiscretizedDiscountBond() = DiscretizedDiscountBond(DiscretizedAssetCommon())
 
 function adjust_values!(dAsset::DiscretizedAsset)
   pre_adjust_values!(dAsset)
@@ -53,7 +57,7 @@ end
 
 function is_on_time(dAsset::DiscretizedAsset, t::Float64)
   grid = dAsset.common.method.tg
-  return QuantLib.Math.close_enough(grid.times[findfirst(grid.times .>= t)], dAsset.common.time)
+  return QuantLib.Math.close_enough(grid.times[return_index(grid, t)], dAsset.common.time)
 end
 
 function rollback!(dAsset::DiscretizedAsset, t::Float64)
@@ -108,10 +112,4 @@ function initialize!(asset::DiscretizedAsset, lattice::Lattice, t::Float64)
   set_method!(asset, lattice)
   initialize!(lattice, asset, t)
   return asset
-end
-
-function reset!(dBond::DiscretizedDiscountBond, sz::Int)
-  dBond.common.values = ones(sz)
-
-  return dBond
 end

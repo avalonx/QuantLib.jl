@@ -1,10 +1,12 @@
-type Branching{I <: Integer}
-  k::Vector{I}
+type NullLattice <: Lattice end
+
+type Branching
+  k::Vector{Int}
   probs::Vector{Vector{Float64}}
-  kMin::I
-  jMin::I
-  kMax::I
-  jMax::I
+  kMin::Int
+  jMin::Int
+  kMax::Int
+  jMax::Int
 end
 
 function Branching()
@@ -15,7 +17,7 @@ function Branching()
   return Branching(zeros(Int, 0), probs, typemax(Int), typemax(Int), typemin(Int), typemin(Int))
 end
 
-type TrinomialTree{S <: StochasticProcess}
+type TrinomialTree{S <: StochasticProcess} <: AbstractTree
   process::S
   timeGrid::TimeGrid
   dx::Vector{Float64}
@@ -73,15 +75,15 @@ function TrinomialTree{S <: StochasticProcess}(process::S, timeGrid::TimeGrid, i
   return TrinomialTree(process, timeGrid, dx, branchings, isPositive)
 end
 
-type TreeLattice1D{T, I <: Integer} <: TreeLattice
+type TreeLattice1D{T <: TreeLattice} <: TreeLattice
   tg::TimeGrid
   impl::T
   statePrices::Vector{Vector{Float64}}
-  n::I
-  statePricesLimit::I
+  n::Int
+  statePricesLimit::Int
 end
 
-function TreeLattice1D{I <: Integer, T}(tg::TimeGrid, n::I, impl::T)
+function TreeLattice1D{T <: TreeLattice}(tg::TimeGrid, n::Int, impl::T)
   statePrices = Vector{Vector{Float64}}(1)
   statePrices[1] = ones(1)
 
@@ -90,19 +92,30 @@ function TreeLattice1D{I <: Integer, T}(tg::TimeGrid, n::I, impl::T)
   return TreeLattice1D(tg, impl, statePrices, n, statePricesLimit)
 end
 
-type TreeLattice2D{T, I <: Integer} <: TreeLattice
+function get_grid(lat::TreeLattice1D, t::Float64)
+  i = return_index(lat.tg, t)
+  grid = zeros(get_size(lat.impl, i))
+
+  for j in eachindex(grid)
+    grid[j] = get_underlying(lat.impl, i, j)
+  end
+
+  return grid
+end
+
+type TreeLattice2D{T <: TreeLattice} <: TreeLattice
   tg::TimeGrid
   impl::T
   statePrices::Vector{Vector{Float64}}
-  n::I
-  statePricesLimit::I
+  n::Int
+  statePricesLimit::Int
   tree1::TrinomialTree
   tree2::TrinomialTree
   m::Matrix{Float64}
   rho::Float64
 end
 
-function TreeLattice2D{T}(tree1::TrinomialTree, tree2::TrinomialTree, correlation::Float64, impl::T)
+function TreeLattice2D{T <: TreeLattice}(tree1::TrinomialTree, tree2::TrinomialTree, correlation::Float64, impl::T)
   tg = tree1.timeGrid
   statePrices = Vector{Vector{Float64}}(1)
   statePrices[1] = ones(1)
@@ -202,7 +215,8 @@ function compute_state_prices!(t::TreeLattice, until::Int)
 end
 
 function initialize!(lattice::TreeLattice, asset::DiscretizedAsset, t::Float64)
-  i = findfirst(lattice.tg.times .>= t)
+  #i = findfirst(lattice.tg.times .>= t)
+  i = return_index(lattice.tg, t)
   set_time!(asset, t)
   reset!(asset, get_size(lattice.impl, i))
 end
@@ -221,17 +235,21 @@ function partial_rollback!(lattice::TreeLattice, asset::DiscretizedAsset, t::Flo
     return
   end
 
-  iFrom = findfirst(lattice.tg.times .>= from)
-  iTo = findfirst(lattice.tg.times .>= t)
+  # iFrom = findfirst(lattice.tg.times .>= from)
+  # iTo = findfirst(lattice.tg.times .>= t)
+  iFrom = return_index(lattice.tg, from)
+  iTo = return_index(lattice.tg, t)
 
   @simd for i = iFrom-1:-1:iTo
     newVals = zeros(get_size(lattice.impl, i))
     step_back!(lattice, i, asset.common.values, newVals)
     @inbounds asset.common.time = lattice.tg.times[i]
     asset.common.values = newVals
+    # println("newVals before: ", newVals)
     if i != iTo
       adjust_values!(asset)
     end
+    # println("newVals after: ", newVals)
   end
 
   return asset
@@ -249,7 +267,7 @@ function step_back!(lattice::TreeLattice, i::Int, vals::Vector{Float64}, newVals
     @simd for l = 1:lattice.n
       @inbounds val += probability(lattice.impl, i, j, l) * vals[descendant(lattice.impl, i, j, l)]
     end
-    val *= discount(lattice.impl, i, j)
+    @inbounds val *= discount(lattice.impl, i, j)
     @inbounds newVals[j] = val
   end
 

@@ -1,10 +1,12 @@
-type LogInterpolation <: Interpolation
+type LogInterpolation{IN <: Interpolation} <: Interpolation
   x_vals::Vector{Float64}
   y_vals::Vector{Float64}
-  interpolator::LinearInterpolation
+  interpolator::IN
 end
 
-function LogInterpolation(x_vals::Vector{Float64}, y_vals::Vector{Float64})
+typealias LogLinearInterpolation LogInterpolation{LinearInterpolation}
+
+function LogLinear(x_vals::Vector{Float64}, y_vals::Vector{Float64})
   # build log of y values, defaulting to 0 for initial state
   n = length(x_vals)
   log_y_vals = zeros(n)
@@ -17,7 +19,7 @@ function LogInterpolation(x_vals::Vector{Float64}, y_vals::Vector{Float64})
 end
 
 # if no values are provided
-function LogInterpolation()
+function LogLinear()
   x_vals = Vector{Float64}()
   y_vals = Vector{Float64}()
   s = Vector{Float64}()
@@ -43,7 +45,7 @@ function initialize!(interp::LogInterpolation, x_vals::Vector{Float64}, y_vals::
 end
 
 # Log Interpolation update
-function update!{I <: Integer}(interp::LogInterpolation, idx::I)
+function update!(interp::LogInterpolation, idx::Int)
   # first get the log of the y values
   for i = 1:idx
     @inbounds interp.interpolator.y_vals[i] = log(interp.y_vals[i])
@@ -54,4 +56,8 @@ function update!{I <: Integer}(interp::LogInterpolation, idx::I)
   return interp
 end
 
+update!(interp::LogInterpolation) = update!(interp.interpolator)
+
 value(interp::LogInterpolation, val::Float64) = exp(value(interp.interpolator, val))
+
+derivative(interp::LogInterpolation, val::Float64) = value(interp, val) * derivative(interp.interpolator, val)

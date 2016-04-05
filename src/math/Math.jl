@@ -66,7 +66,7 @@ function get_factorial{I <: Integer}(i::I)
   end
 end
 
-function get_polynomial{I <: Integer}(::BernsteinPolynomial, i::I, n::I, x::Float64)
+function get_polynomial(::BernsteinPolynomial, i::Int, n::Int, x::Float64)
   coeff = get_factorial(n) / (get_factorial(n-1) * get_factorial(i))
 
   return coeff * (x ^ i) * (1.0 - x)^(n - i)
@@ -112,27 +112,49 @@ export lmdif2!
 include("lmdif2.jl")
 
 # distribution.jl
-export distribution_derivative
+export distribution_derivative, peizer_pratt_method_2_inversion
 include("distributions.jl")
 
 # integral.jl
 export Integrator, IntegrationFunction, SegmentIntegral, operator, integrate, GaussLaguerreIntegration, get_order
 include("integral.jl")
 
+# svd.jl
+export SVD
+include("svd.jl")
+
 # tridiagonal_operator.jl
 export TridiagonalOperator, TridiagIdentity, set_mid_row!, set_last_row!, set_first_row!, apply_to, solve_for!
 include("tridiagonal_operator.jl")
+
+# matrix.jl
+export NoneSalvagingAlgo, rank_reduced_sqrt, OrthogonalProjection, get_vector
+include("matrix.jl")
 
 # transformed_grid.jl
 export TransformedGrid, LogGrid
 include("transformed_grid.jl")
 
+# rng.jl
+export AbstractRandomSequenceGenerator, PseudoRandomRSG, InverseCumulativeRSG, SobolRSG, SobolInverseCumulativeRSG, next_sequence!, last_sequence, init_sequence_generator!
+include("rng.jl")
+
+# statistics.jl
+export NonWeightedStatistics, GenericRiskStatistics, RiskStatistics, gen_RiskStatistics, GenericSequenceStats, reset!, add_sample!, adding_data!, error_estimate, stats_mean, stats_std_deviation,
+stats_skewness, stats_kurtosis, stats_covariance
+include("statistics.jl")
+
 # sampled_curve.jl
 export SampledCurve, get_size, set_log_grid!, set_grid!, sample!, value_at_center, first_derivative_at_center, second_derivative_at_center
 include("sampled_curve.jl")
 
+# general_linear_least_squares.jl
+export GeneralLinearLeastSquares, get_coefficients
+include("general_linear_least_squares.jl")
+
 # interpolation.jl
-export Interpolation, Spline, Lagrange, LogInterpolation, BicubicSpline, NaturalCubicSpline, CubicInterpolation, BackwardFlatInterpolation, update!, locate, initialize!, value, get_primitive
+export Interpolation, Spline, Lagrange, LogInterpolation, LogLinear, BicubicSpline, NaturalCubicSpline, CubicInterpolation, BackwardFlatInterpolation, update!, locate, initialize!, value, get_primitive,
+derivative
 
 include("interpolation/interpolation.jl")
 include("interpolation/linear_interpolation.jl")

@@ -14,7 +14,7 @@ function initialize!(interp::LinearInterpolation, x_vals::Vector{Float64}, y_val
 end
 
 # Linear Interpolation update
-function update!{I <: Integer}(interp::LinearInterpolation, idx::I)
+function update!(interp::LinearInterpolation, idx::Int)
   for i = 2:idx
     @inbounds dx = interp.x_vals[i] - interp.x_vals[i - 1]
     @inbounds interp.s[i - 1] = (interp.y_vals[i] - interp.y_vals[i - 1]) / dx
@@ -22,6 +22,8 @@ function update!{I <: Integer}(interp::LinearInterpolation, idx::I)
 
   return interp
 end
+
+update!(interp::LinearInterpolation) = update!(interp, length(interp.y_vals))
 
 function value(interp::LinearInterpolation, val::Float64)
   i = locate(interp, val)
@@ -31,4 +33,9 @@ function value(interp::LinearInterpolation, val::Float64)
   # println("X vals ", interp.x_vals)
   # println("S vals ", interp.s)
   return interp.y_vals[i] + (val - interp.x_vals[i]) * interp.s[i]
+end
+
+function derivative(interp::LinearInterpolation, val::Float64)
+  i = locate(interp, val)
+  return interp.s[i]
 end

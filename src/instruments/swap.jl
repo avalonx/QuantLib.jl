@@ -259,7 +259,7 @@ function _build_payer(swapT::Receiver)
 end
 
 # Swap methods #
-function maturity_date{S <: Swap}(swap::S)
+function maturity_date(swap::Swap)
   d = maturity_date(swap.legs[1])
   for i = 2:length(swap.legs)
     d = max(d, maturity_date(swap.legs[i]))
@@ -326,3 +326,36 @@ function clone(swap::VanillaSwap, pe::PricingEngine = swap.pricingEngine, ts::Te
 end
 
 get_pricing_engine_type{ST, DC_fix, DC_float, B, L, P}(::VanillaSwap{ST, DC_fix, DC_float, B, L, P}) = P
+
+function update_ts_idx!(swap::VanillaSwap, ts::TermStructure)
+  typeof(ts) == typeof(swap.iborIndex.ts) || error("Term Structure mismatch for swap between ts and index ts")
+  newIborIdx = clone(swap.iborIndex, ts)
+  swap.iborIndex = newIborIdx
+
+  # update legs
+  for coup in swap.legs[2].coupons
+    coup.iborIndex = newIborIdx
+  end
+
+  swap.lazyMixin.calculated = false
+
+  return swap
+end
+
+function update_ts_pe!(swap::VanillaSwap, ts::TermStructure)
+  typeof(ts) == typeof(swap.pricingEngine.yts) || error("Term Structure mismatch for swap between ts and pric engine ts")
+
+  swap.pricingEngine.yts = ts
+
+  swap.lazyMixin.calculated = false
+
+  return swap
+end
+
+function update_all_ts!(swap::VanillaSwap, ts::TermStructure)
+  # this will update the ts of the pricing engine and ibor index
+  update_ts_idx!(swap, ts)
+  update_ts_pe!(swap, ts)
+
+  return swap
+end

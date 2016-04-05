@@ -1,9 +1,9 @@
-type TridiagonalOperator{I <: Integer}
+type TridiagonalOperator
   diagonal::Vector{Float64}
   lowerDiagonal::Vector{Float64}
   upperDiagonal::Vector{Float64}
   temp::Vector{Float64}
-  n::I
+  n::Int
 end
 
 TridiagonalOperator(n::Int) = TridiagonalOperator(zeros(n), zeros(n - 1), zeros(n - 1), zeros(n), n)
@@ -79,7 +79,7 @@ function apply_to(L::TridiagonalOperator, v::Vector{Float64})
 end
 
 # basic operators
-import Base.+, Base.-, Base.*, Base./
+import Base.+, Base.-, Base.*, Base./, Base.copy
 
 function -(D::TridiagonalOperator)
   low = -D.lowerDiagonal
@@ -130,3 +130,5 @@ function /(D::TridiagonalOperator, a::Number)
 
   return TridiagonalOperator(mid, low, high, D.temp, D.n)
 end
+
+copy(L::TridiagonalOperator) = TridiagonalOperator(L.diagonal, L.lowerDiagonal, L.upperDiagonal, L.temp, L.n)

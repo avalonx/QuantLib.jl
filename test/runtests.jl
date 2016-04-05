@@ -1,5 +1,17 @@
 using QuantLib
-using Base.Test
 
-# write your own tests here
-@test 1 == 1
+tests = ["cash_flows",
+        "indexes",
+        "bonds",
+        "forwards",
+        "options",
+        "swaps",
+        "swaptions"]
+
+println("Running tests:")
+
+for t in tests
+    tfile = string(t, ".jl")
+    println(" * $(tfile) ...")
+    include(tfile)
+end
